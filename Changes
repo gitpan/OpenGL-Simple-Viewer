@@ -1,0 +1,6 @@
+Revision history for Perl extension OpenGL::Simple::Viewer.
+
+0.01  Thu Jul 15 22:09:55 2004
+	- original version; created by h2xs 1.22 with options
+		-XAn OpenGL::Simple::Viewer -b 5.6.1
+
