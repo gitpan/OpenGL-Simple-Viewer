@@ -18,9 +18,23 @@ our @ISA = qw(Exporter);
 # This allows declaration	use OpenGL::Simple::Viewer ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
+our %EXPORT_TAGS = (
+'all' => [ qw(
+        basic_mousefunc
+        basic_reshapefunc
+        basic_motionfunc
+        basic_displayfunc
+        postredisplay
+        ) ],
+'basic' => [ qw(
+        basic_mousefunc
+        basic_reshapefunc
+        basic_motionfunc
+        basic_displayfunc
+        postredisplay
+)],
+
+);
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
@@ -28,7 +42,102 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
+
+
+# These variables are for the old-style basic_* functions.
+
+our ($clickx, $clicky, %buttonstate) = (0,0,
+ GLUT_LEFT_BUTTON(), 0, GLUT_MIDDLE_BUTTON(), 0, GLUT_RIGHT_BUTTON(), 0 );
+ 
+our $orientation = new Math::Quaternion;
+our $mousescale    = 0.01;
+our $zoomscale     = 0.1;
+our ($geomx, $geomy, $geomz) = (0,0,0);
+my $sphererad;
+
+# Let's dump the old functions here as well.
+
+sub basic_reshapefunc {
+    my ( $screenx, $screeny ) = @_;
+    $sphererad = $screeny * 0.5;
+    glViewport( 0, 0, $screenx, $screeny );
+}
+
+sub basic_mousefunc {
+    my ( $button, $state, $x, $y ) = @_;
+
+    ( $clickx, $clicky ) = ( $x, $y );
+    $buttonstate{$button} = ( GLUT_DOWN() == $state ) ? 1 : 0;
+}
+
+sub basic_motionfunc {
+    my ( $x, $y ) = @_;
+    my ( $left, $mid, $right ) =
+      @buttonstate{ GLUT_LEFT_BUTTON(), GLUT_MIDDLE_BUTTON(), GLUT_RIGHT_BUTTON() };
+
+    if ($left) { basic_mouserotatemotion( $clickx, $clicky, $x, $y ); }
+    elsif ($mid) { basic_mousezoommotion( $y - $clicky ); }
+    elsif ($right) { basic_mousetransmotion( $clickx, $clicky, $x, $y ); }
+    ( $clickx, $clicky ) = ( $x, $y );
+}
+
+sub postredisplay { glutPostRedisplay(); }
+
+sub basic_mouserotatemotion {
+    my ( $x0, $y0, $x1, $y1 ) = @_;
+
+    my $s  = $sphererad;
+    my $my = $x1 - $x0; my $mx = $y1 - $y0;
+    my $m  = sqrt( $mx * $mx + $my * $my );
+
+    my $theta;
+    if ( ( $m > 0 ) && ( $m < $s ) ) {
+        $theta = $m / $s;
+
+        $mx /= $m;
+        $my /= $m;
+
+        my $rotquat = Math::Quaternion::rotation( $theta, $mx, $my, 0.0 );
+        $orientation = $rotquat * $orientation;
+    }
+
+    postredisplay;
+}
+
+sub basic_mousetransmotion {
+    my ( $x0, $y0, $x1, $y1 ) = @_;
+    $geomx += $mousescale * ( $x1 - $x0 );
+    $geomy += $mousescale * ( $y0 - $y1 );
+    postredisplay;
+}
+
+sub basic_mousezoommotion { $geomz -= $zoomscale * shift; postredisplay; }
+
+sub drawback { glClear( GL_COLOR_BUFFER_BIT() | GL_DEPTH_BUFFER_BIT() ); }
+
+sub basic_displayfunc {
+    my $callback = shift;
+    return sub {
+    drawback();
+
+    # Set up perspective projection
+    glMatrixMode(GL_PROJECTION());
+    glLoadIdentity();
+    gluPerspective( 45.0, 1.0, 0.1, 100.0 );
+    glMatrixMode(GL_MODELVIEW());
+    glLoadIdentity();
+
+    # Position and orient geometry
+
+    glTranslate( $geomx, $geomy, $geomz );
+    my @m = $orientation->matrix4x4;
+    glMultMatrix(@m);
+    $callback->();
+    glFlush();
+    glutSwapBuffers();
+    }
+}
 
 =head1 NAME
 

@@ -10,4 +10,6 @@ examples/teapot.pl
 examples/ganged.pl
 examples/texpot.pl
 examples/check.png
+examples/pdbviewer.pl
+examples/aatori.pl
 META.yml                                 Module meta-data (added by MakeMaker)
